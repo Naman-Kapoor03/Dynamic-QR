@@ -92,7 +92,7 @@ def create_qr_code(request):
         appstore_link=appstore,
         campaign=data.get('campaign'),
     )
-    qr_url = f"https://goes-protect-enclosed-harvey.trycloudflare.com/api/qr/scan/{qr.code}/"
+    qr_url = f"https://dry-dash-qr.onrender.com//api/qr/scan/{qr.code}/"
     img = generate_qr_with_logo(qr_url)
 
     buffer = BytesIO()

@@ -12,7 +12,7 @@
     BarChart2, Zap, Activity, X, CircleDot,
   } from "lucide-react";
 
-  const API = "https://goes-protect-enclosed-harvey.trycloudflare.com";
+  const API = "https://dry-dash-qr.onrender.com/";
 
   /* ── Custom font injection (Tailwind doesn't ship Fraunces / IBM Plex) ── */
   const FontStyle = () => (

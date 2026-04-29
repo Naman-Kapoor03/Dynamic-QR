@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Trash2, Download, Pencil, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API = "https://goes-protect-enclosed-harvey.trycloudflare.com";
+const API = "https://dry-dash-qr.onrender.com/";
 
 export default function History() {
   const [data, setData] = useState([]);
