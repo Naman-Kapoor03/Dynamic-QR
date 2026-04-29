@@ -1,0 +1,7 @@
+Django>=4.2
+djangorestframework
+qrcode
+pillow
+user-agents
+django-cors-headers
+psycopg2-binary
