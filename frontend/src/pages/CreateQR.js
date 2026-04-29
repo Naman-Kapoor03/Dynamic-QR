@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { QrCode, Download, Copy, Check, Tag, Play, Apple } from "lucide-react";
 
-const API = "https://dry-dash-qr.onrender.com/";
+const API = "https://dry-dash-qr.onrender.com";
 
 export default function App() {
   const [name, setName] = useState("");
