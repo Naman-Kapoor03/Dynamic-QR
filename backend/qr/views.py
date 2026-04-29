@@ -12,11 +12,66 @@ from user_agents import parse
 
 
 from .models import QRCode
-from .utils import generate_unique_code, generate_qr_with_logo
+from .utils import generate_unique_code, generate_qr_image
 from analytics.models import QRScan
 from PIL import Image
 
 from PIL import Image, ImageDraw
+
+def generate_qr_with_logo(url):
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=4,
+    )
+
+    qr.add_data(url)
+    qr.make(fit=True)
+
+    # Create base image
+    qr_img = qr.get_matrix()
+
+    size = len(qr_img)
+    box_size = 10
+    img_size = size * box_size
+
+    img = Image.new("RGB", (img_size, img_size), "white")
+    draw = ImageDraw.Draw(img)
+
+    # 🔥 DRAW ROUNDED DOTS
+    for y in range(size):
+        for x in range(size):
+            if qr_img[y][x]:
+                x1 = x * box_size
+                y1 = y * box_size
+                x2 = x1 + box_size
+                y2 = y1 + box_size
+
+                # Draw rounded rectangle (circle-like)
+                draw.ellipse([x1, y1, x2, y2], fill="black")
+
+    # 🔥 ADD LOGO (same as before)
+    try:
+        import os
+        from django.conf import settings
+
+        logo_path = os.path.join(settings.BASE_DIR, "static", "final.png")
+        logo = Image.open(logo_path)
+
+        img_w, img_h = img.size
+        logo_size = img_w // 4
+
+        logo = logo.resize((logo_size, logo_size))
+
+        pos = ((img_w - logo_size) // 2, (img_h - logo_size) // 2)
+
+        img.paste(logo, pos, mask=logo if logo.mode == 'RGBA' else None)
+
+    except Exception as e:
+        print("Logo load failed:", e)
+
+    return img
 
 @api_view(['POST'])
 def create_qr_code(request):
@@ -40,6 +95,8 @@ def create_qr_code(request):
     qr_url = f"https://dry-dash-qr.onrender.com/api/qr/scan/{qr.code}/"
     img = generate_qr_with_logo(qr_url)
 
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
 
     qr_image = base64.b64encode(buffer.getvalue()).decode()
 
