@@ -49,7 +49,7 @@ def generate_qr_with_logo(url):
                 y2 = y1 + box_size
 
                 # Draw rounded rectangle (circle-like)
-                draw.ellipse([x1, y1, x2, y2], fill="black")
+                draw.ellipse([x1, y1, x2, y2], fill="#2FD1A7")
 
     # 🔥 ADD LOGO (same as before)
     try:
