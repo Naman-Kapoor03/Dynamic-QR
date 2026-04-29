@@ -105,7 +105,7 @@ def generate_qr_with_logo(url):
         logo = Image.open(center_logo_path).convert("RGBA")
 
         img_w, img_h = img.size
-        logo_size = img_w // 4
+        logo_size = img_w // 3
 
         logo = logo.resize((logo_size, logo_size))
 
