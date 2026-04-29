@@ -19,6 +19,11 @@ from PIL import Image
 from PIL import Image, ImageDraw
 
 def generate_qr_with_logo(url):
+    import qrcode
+    from PIL import Image, ImageDraw
+    import os
+    from django.conf import settings
+
     qr = qrcode.QRCode(
         version=None,
         error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -29,35 +34,73 @@ def generate_qr_with_logo(url):
     qr.add_data(url)
     qr.make(fit=True)
 
-    # Create base image
-    qr_img = qr.get_matrix()
+    qr_matrix = qr.get_matrix()
 
-    size = len(qr_img)
+    size = len(qr_matrix)
     box_size = 10
     img_size = size * box_size
 
     img = Image.new("RGB", (img_size, img_size), "white")
     draw = ImageDraw.Draw(img)
 
+    # 🎨 COLOR (your DD theme)
+    dot_color = "#1DBF8A"
+
     # 🔥 DRAW ROUNDED DOTS
     for y in range(size):
         for x in range(size):
-            if qr_img[y][x]:
+            if qr_matrix[y][x]:
                 x1 = x * box_size
                 y1 = y * box_size
                 x2 = x1 + box_size
                 y2 = y1 + box_size
 
-                # Draw rounded rectangle (circle-like)
-                draw.ellipse([x1, y1, x2, y2], fill="#2FD1A7")
+                draw.ellipse([x1, y1, x2, y2], fill=dot_color)
 
-    # 🔥 ADD LOGO (same as before)
+    # 📐 FINDER PATTERN SIZE (7 modules)
+    finder_size = box_size * 7
+    offset = finder_size // 4
+
+    corner_positions = [
+        (0, 0),
+        (img_size - finder_size, 0),
+        (0, img_size - finder_size),
+    ]
+
+    # 🧼 REMOVE INNER SQUARE
+    for (x, y) in corner_positions:
+        draw.rectangle(
+            [
+                x + offset,
+                y + offset,
+                x + finder_size - offset,
+                y + finder_size - offset,
+            ],
+            fill="white"
+        )
+
+    # 🟢 ADD DD LOGO IN CORNERS
     try:
-        import os
-        from django.conf import settings
+        dd_logo_path = os.path.join(settings.BASE_DIR, "static", "dd_corner.png")
+        dd_logo = Image.open(dd_logo_path).convert("RGBA")
 
-        logo_path = os.path.join(settings.BASE_DIR, "static", "drydash.png")
-        logo = Image.open(logo_path)
+        logo_size = finder_size // 2
+        dd_logo = dd_logo.resize((logo_size, logo_size))
+
+        for (x, y) in corner_positions:
+            pos = (
+                x + (finder_size - logo_size) // 2,
+                y + (finder_size - logo_size) // 2
+            )
+            img.paste(dd_logo, pos, mask=dd_logo)
+
+    except Exception as e:
+        print("Corner logo error:", e)
+
+    # 🟢 ADD CENTER LOGO
+    try:
+        center_logo_path = os.path.join(settings.BASE_DIR, "static", "drydash.png")
+        logo = Image.open(center_logo_path).convert("RGBA")
 
         img_w, img_h = img.size
         logo_size = img_w // 4
@@ -66,10 +109,10 @@ def generate_qr_with_logo(url):
 
         pos = ((img_w - logo_size) // 2, (img_h - logo_size) // 2)
 
-        img.paste(logo, pos, mask=logo if logo.mode == 'RGBA' else None)
+        img.paste(logo, pos, mask=logo)
 
     except Exception as e:
-        print("Logo load failed:", e)
+        print("Center logo error:", e)
 
     return img
 
