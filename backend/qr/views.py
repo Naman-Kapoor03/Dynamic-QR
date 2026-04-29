@@ -61,10 +61,12 @@ def generate_qr_with_logo(url):
     finder_size = box_size * 7
     offset = finder_size // 4
 
+    border = 4 * box_size  # because border=4
+
     corner_positions = [
-        (0, 0),
-        (img_size - finder_size, 0),
-        (0, img_size - finder_size),
+    (border, border),
+    (img_size - finder_size - border, border),
+    (border, img_size - finder_size - border),
     ]
 
     # 🧼 REMOVE INNER SQUARE
