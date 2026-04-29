@@ -38,8 +38,10 @@ def create_qr_code(request):
         campaign=data.get('campaign'),
     )
     qr_url = f"https://dry-dash-qr.onrender.com/api/qr/scan/{qr.code}/"
-    qr_image = generate_qr_with_logo(qr_url)
+    img = generate_qr_with_logo(qr_url)
 
+
+    qr_image = base64.b64encode(buffer.getvalue()).decode()
 
     return Response({
         "qr_url": qr_url,
