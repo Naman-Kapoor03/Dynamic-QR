@@ -56,7 +56,7 @@ def generate_qr_with_logo(url):
         import os
         from django.conf import settings
 
-        logo_path = os.path.join(settings.BASE_DIR, "static", "dd_final.png")
+        logo_path = os.path.join(settings.BASE_DIR, "static", "drydash.png")
         logo = Image.open(logo_path)
 
         img_w, img_h = img.size
