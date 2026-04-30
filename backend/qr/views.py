@@ -19,6 +19,11 @@ from PIL import Image
 from PIL import Image, ImageDraw
 
 def generate_qr_with_logo(url):
+    import qrcode
+    from PIL import Image
+    import os
+    from django.conf import settings
+
     qr = qrcode.QRCode(
         version=None,
         error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -29,44 +34,22 @@ def generate_qr_with_logo(url):
     qr.add_data(url)
     qr.make(fit=True)
 
-    # Create base image
-    qr_img = qr.get_matrix()
+    # ✅ NORMAL QR (no dots)
+    img = qr.make_image(fill_color="#2FD1A7", back_color="white").convert("RGB")
 
-    size = len(qr_img)
-    box_size = 10
-    img_size = size * box_size
-
-    img = Image.new("RGB", (img_size, img_size), "white")
-    draw = ImageDraw.Draw(img)
-
-    # 🔥 DRAW ROUNDED DOTS
-    for y in range(size):
-        for x in range(size):
-            if qr_img[y][x]:
-                x1 = x * box_size
-                y1 = y * box_size
-                x2 = x1 + box_size
-                y2 = y1 + box_size
-
-                # Draw rounded rectangle (circle-like)
-                draw.ellipse([x1, y1, x2, y2], fill="#2FD1A7")
-
-    # 🔥 ADD LOGO (same as before)
+    # 🔥 ADD CENTER LOGO
     try:
-        import os
-        from django.conf import settings
-
         logo_path = os.path.join(settings.BASE_DIR, "static", "drydash.png")
-        logo = Image.open(logo_path)
+        logo = Image.open(logo_path).convert("RGBA")
 
         img_w, img_h = img.size
-        logo_size = img_w // 4
+        logo_size = img_w // 3   # slightly bigger for better look
 
         logo = logo.resize((logo_size, logo_size))
 
         pos = ((img_w - logo_size) // 2, (img_h - logo_size) // 2)
 
-        img.paste(logo, pos, mask=logo if logo.mode == 'RGBA' else None)
+        img.paste(logo, pos, mask=logo)
 
     except Exception as e:
         print("Logo load failed:", e)
