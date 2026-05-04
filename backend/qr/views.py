@@ -34,10 +34,10 @@ def generate_qr_with_logo(url):
     qr.add_data(url)
     qr.make(fit=True)
 
-    # ✅ NORMAL QR (no dots)
+    #  NORMAL QR (no dots)
     img = qr.make_image(fill_color="#2FD1A7", back_color="white").convert("RGB")
 
-    # 🔥 ADD CENTER LOGO
+    #  ADD CENTER LOGO
     try:
         logo_path = os.path.join(settings.BASE_DIR, "static", "drydash.png")
         logo = Image.open(logo_path).convert("RGBA")

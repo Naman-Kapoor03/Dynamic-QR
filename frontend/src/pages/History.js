@@ -109,21 +109,15 @@ export default function History() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                 <button
                   onClick={() => window.open(`${API}/api/qr/download/${qr.code}/`)}
-                  className="p-2 rounded-lg border border-transparent hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-300 transition-all"
+                  className="p rounded-lg border border-transparent hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-300 transition-all"
                   title="Download"
                 >
                   <Download size={15} />
                 </button>
-                <button
-                  onClick={() => navigate(`/dashboard/${qr.code}?edit=true`)}
-                  className="p-2 rounded-lg border border-transparent hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-300 transition-all"
-                  title="Edit"
-                >
-                  <Pencil size={15} />
-                </button>
+                
                 <button
                   onClick={e => handleDeleteClick(qr, e)}
                   className="p-2 rounded-lg border border-transparent hover:bg-red-950/50 hover:border-red-900/50 text-slate-600 hover:text-red-400 transition-all"

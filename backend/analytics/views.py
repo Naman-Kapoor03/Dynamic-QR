@@ -115,34 +115,57 @@ def export_qr_scans(request, code):
     except QRCode.DoesNotExist:
         return Response({"error": "QR not found"}, status=404)
 
-    scans = QRScan.objects.filter(qr=qr)
+    scans = QRScan.objects.filter(qr=qr).order_by("-scanned_at")
 
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{code}_scans.csv"'
 
     writer = csv.writer(response)
 
-    # Header
     writer.writerow([
         "IP Address",
         "Device",
         "OS",
         "Browser",
         "Country",
+        "Region",
         "City",
         "Scanned At"
     ])
 
-    # Data
     for scan in scans:
+        # handle localhost case
+        ip = get_client_ip(request)
+        print("REAL IP:", ip)
+        
+        is_local = ip in ["127.0.0.1", "localhost"]
+
         writer.writerow([
-            scan.ip_address,
+            ip,
             scan.device_type,
             scan.os,
             scan.browser,
-            scan.country,
-            scan.city,
-            scan.scanned_at
+            scan.country if not is_local else "Localhost",
+            getattr(scan, "region", "") if not is_local else "",
+            scan.city if not is_local else "",
+            scan.scanned_at.strftime("%Y-%m-%d %H:%M:%S")
         ])
 
     return response
+
+
+def get_client_ip(request):
+    headers = request.META
+
+    # Cloudflare real IP
+    ip = headers.get('HTTP_CF_CONNECTING_IP')
+
+    if not ip:
+        ip = headers.get('HTTP_X_FORWARDED_FOR')
+
+    if ip:
+        ip = ip.split(',')[0]
+    else:
+        ip = headers.get('REMOTE_ADDR')
+
+    return ip

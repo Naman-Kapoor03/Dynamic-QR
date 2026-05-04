@@ -353,17 +353,7 @@
                     >
                       <Download size={14} strokeWidth={2} /> Download QR
                     </button>
-                    <button
-                      onClick={() => setEditing(true)}
-                      className="flex items-center justify-center gap-2 w-full py-2.5 rounded-[10px]
-                                bg-white/[0.04] border border-white/[0.09] text-slate-400
-                                text-[13px] font-semibold tracking-wide
-                                hover:text-slate-200 hover:border-indigo-500/30
-                                hover:-translate-y-px active:translate-y-0
-                                transition-all duration-150 cursor-pointer"
-                    >
-                      <Pencil size={14} strokeWidth={2} /> Edit Links
-                    </button>
+                    
                   </div>
                 </motion.div>
 
