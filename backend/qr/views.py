@@ -1,8 +1,8 @@
 import base64
 from io import BytesIO
+from io import BytesIO
 import qrcode
-from dotenv import load_dotenv
-import os
+import qrcode
 
 from rest_framework.response import Response
 from django.http import HttpResponse, HttpResponsePermanentRedirect
@@ -17,9 +17,6 @@ from analytics.models import QRScan
 from PIL import Image
 
 from PIL import Image, ImageDraw
-
-load_dotenv()
-
 
 def generate_qr_with_logo(url):
     import qrcode
@@ -118,8 +115,17 @@ def scan_qr(request, code):
         browser=ua.browser.family
     )
 
-    # redirect to tracking page instead of playstore/appstore
-    return redirect(f"https://drydash-qr-system.netlify.app/#/track/{qr.code}/")
+    if "Android" in ua.os.family and qr.playstore_link:
+        return HttpResponsePermanentRedirect(qr.playstore_link)
+
+    elif ("iOS" in ua.os.family or "iPhone" in ua.os.family) and qr.appstore_link:
+        return HttpResponsePermanentRedirect(qr.appstore_link)
+    
+    if qr.playstore_link:
+        return HttpResponsePermanentRedirect(qr.playstore_link)
+    
+    if qr.appstore_link:
+        return HttpResponsePermanentRedirect(qr.appstore_link)
     
 @api_view(['PUT'])
 def update_qr(request, code):
@@ -173,78 +179,4 @@ def delete_qr(request, code):
         return Response({"message": "Deleted"})
     except QRCode.DoesNotExist:
         return Response({"error": "Not found"}, status=404)
-
-import requests
-
-def get_address_from_latlng(lat, lng):
-    API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
-
-    url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={API_KEY}"
-
-    try:
-        response = requests.get(url)
-        data = response.json()
-
-        if data["status"] == "OK":
-            result = data["results"][0]
-            return result.get("formatted_address")
-
-    except Exception as e:
-        print("Geocode error:", e)
-
-    return None
-
-@api_view(['POST'])
-def save_location(request, code):
-    try:
-        qr = QRCode.objects.get(code=code)
-    except QRCode.DoesNotExist:
-        return Response({"error": "QR not found"}, status=404)
-
-    latitude = request.data.get("latitude")
-    longitude = request.data.get("longitude")
-
-    scan = QRScan.objects.filter(qr=qr).order_by("-scanned_at").first()
-
-    if scan:
-        scan.latitude = latitude
-        scan.longitude = longitude
-
-        print("LAT:", latitude)
-        print("LNG:", longitude)
-
-        # 🔥 GET ADDRESS FROM GOOGLE
-        address = get_address_from_latlng(latitude, longitude)
-
-        print("ADDRESS:", address)
-
-        # (for now just log it, we will store properly next step)
-        scan.save()
-
-    return Response({"message": "Location saved"})
-
-def final_redirect(request, code):
-    try:
-        qr = QRCode.objects.get(code=code)
-    except QRCode.DoesNotExist:
-        return redirect("https://google.com")
-
-    ua_string = request.META.get('HTTP_USER_AGENT', '')
-    ua = parse(ua_string)
-
-    # Android
-    if "Android" in ua.os.family and qr.playstore_link:
-        return redirect(qr.playstore_link)
-
-    # iOS
-    elif ("iOS" in ua.os.family or "iPhone" in ua.os.family) and qr.appstore_link:
-        return redirect(qr.appstore_link)
-
-    # fallback
-    if qr.playstore_link:
-        return redirect(qr.playstore_link)
-
-    if qr.appstore_link:
-        return redirect(qr.appstore_link)
-
-    return redirect("https://google.com")
+    
