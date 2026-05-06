@@ -2,59 +2,71 @@ import base64
 from io import BytesIO
 from io import BytesIO
 import qrcode
-import qrcode
+from PIL import Image, ImageDraw, ImageFont
+import os
 
 from rest_framework.response import Response
 from django.http import HttpResponse, HttpResponsePermanentRedirect
 from rest_framework.decorators import api_view
 from django.shortcuts import redirect
 from user_agents import parse
+from django.conf import settings
 
 
 from .models import QRCode
 from .utils import generate_unique_code, generate_qr_image
 from analytics.models import QRScan
-from PIL import Image
 
-from PIL import Image, ImageDraw
 
 def generate_qr_with_logo(url):
-    import qrcode
-    from PIL import Image
-    import os
-    from django.conf import settings
 
     qr = qrcode.QRCode(
         version=None,
         error_correction=qrcode.constants.ERROR_CORRECT_H,
-        box_size=10,
-        border=4,
+        box_size=18,
+        border=1,  
     )
 
     qr.add_data(url)
     qr.make(fit=True)
 
-    #  NORMAL QR (no dots)
-    img = qr.make_image(fill_color="#2FD1A7", back_color="white").convert("RGB")
+    qr_img = qr.make_image(
+        fill_color="black",
+        back_color="white"
+    ).convert("RGB")
 
-    #  ADD CENTER LOGO
-    try:
-        logo_path = os.path.join(settings.BASE_DIR, "static", "drydash.png")
-        logo = Image.open(logo_path).convert("RGBA")
+    qr_img = qr_img.resize((980, 980))
 
-        img_w, img_h = img.size
-        logo_size = img_w // 3   # slightly bigger for better look
+    canvas = Image.new("RGB", (1100, 1250), "white")
 
-        logo = logo.resize((logo_size, logo_size))
+    qr_x = (1100 - 980) // 2
+    canvas.paste(qr_img, (qr_x, 20))
 
-        pos = ((img_w - logo_size) // 2, (img_h - logo_size) // 2)
+    # 🔥 Badge paths
+    play_path = os.path.join(
+        settings.BASE_DIR,
+        "static",
+        "playstore_logo.png"
+    )
 
-        img.paste(logo, pos, mask=logo)
+    app_path = os.path.join(
+        settings.BASE_DIR,
+        "static",
+        "appstore_logo.png"
+    )
 
-    except Exception as e:
-        print("Logo load failed:", e)
+    play_img = Image.open(play_path).convert("RGBA")
+    app_img = Image.open(app_path).convert("RGBA")
 
-    return img
+    play_img = play_img.resize((510, 220))
+    app_img = app_img.resize((510, 220))
+
+    badge_y = 1000
+
+    canvas.paste(play_img, (30, badge_y), play_img)
+    canvas.paste(app_img, (570, badge_y), app_img)
+
+    return canvas
 
 @api_view(['POST'])
 def create_qr_code(request):
@@ -154,19 +166,23 @@ def download_qr(request, code):
     except QRCode.DoesNotExist:
         return Response({"error": "QR not found"}, status=404)
 
+    # 🔥 QR scan URL
     qr_url = request.build_absolute_uri(f"/api/qr/scan/{qr.code}/")
 
+    # 🔥 Generate styled QR poster
     img = generate_qr_with_logo(qr_url)
 
+    # 🔥 Convert image to downloadable PNG
     buffer = BytesIO()
-    img.save(buffer, format="PNG")
+    img.save(buffer, format="PNG", quality=100)
     buffer.seek(0)
 
+    # 🔥 Download response
     return HttpResponse(
-        buffer,
+        buffer.getvalue(),
         content_type="image/png",
         headers={
-            "Content-Disposition": f"attachment; filename={qr.code}.png"
+            "Content-Disposition": f'attachment; filename="{qr.code}.png"'
         }
     )
 
