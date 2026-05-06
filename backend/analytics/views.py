@@ -7,6 +7,7 @@ from django.db.models.functions import TruncDate
 from datetime import datetime, timedelta
 from django.utils.timezone import now
 from django.core.paginator import Paginator
+from django.db.models import Count
 
 
 @api_view(['GET'])
@@ -28,13 +29,10 @@ def qr_analytics(request, code):
     # 🔹 TIME FILTER
     if time_filter == "today":
         scans = scans.filter(scanned_at__date=current_time.date())
-
     elif time_filter == "weekly":
         scans = scans.filter(scanned_at__gte=current_time - timedelta(days=7))
-
     elif time_filter == "monthly":
         scans = scans.filter(scanned_at__gte=current_time - timedelta(days=30))
-
     elif time_filter == "custom" and start and end:
         try:
             start_date = datetime.strptime(start, "%Y-%m-%d")
@@ -46,16 +44,15 @@ def qr_analytics(request, code):
     # 🔹 DEVICE FILTER
     if device_filter == "android":
         scans = scans.filter(os__icontains="Android")
-
     elif device_filter == "ios":
         scans = scans.filter(os__icontains="iOS")
 
-    # 🔹 COUNTS (UNCHANGED)
+    # 🔹 COUNTS
     total_scans = scans.count()
     android = scans.filter(os__icontains="Android").count()
     ios = scans.filter(os__icontains="iOS").count()
 
-    # 🔥 NEW: DAILY GRAPH DATA
+    # 🔹 DAILY GRAPH DATA
     daily_data = (
         scans
         .annotate(date=TruncDate('scanned_at'))
@@ -64,13 +61,49 @@ def qr_analytics(request, code):
         .order_by('date')
     )
 
+    # ✅ RECENT 10 SCANS — always from full unfiltered set
+    recent_raw = QRScan.objects.filter(qr=qr).order_by("-scanned_at")[:10]
+    recent_scans = [
+        {
+            "device": scan.os,
+            "address": scan.address,
+            "timestamp": scan.scanned_at,
+        }
+        for scan in recent_raw
+    ]
+
+    # 🔥 SECTOR BREAKDOWN USING ADDRESS (Option 1)
+    import re
+    from collections import Counter
+
+    all_addresses = QRScan.objects.filter(qr=qr).values_list("address", flat=True)
+
+    sector_counts = Counter()
+
+    for addr in all_addresses:
+        if addr:
+            match = re.search(r"Sector\s*\d+[A-Za-z\-]*", addr)
+            if match:
+                sector = match.group()
+                sector_counts[sector] += 1
+
+    sector_data = [
+        {
+            "sector": sector,
+            "scans": count
+        }
+        for sector, count in sector_counts.items()
+    ]
+
     return Response({
         "name": qr.name,
         "qr_code": qr.code,
         "total_scans": total_scans,
         "android": android,
         "ios": ios,
-        "daily_scans": list(daily_data),  
+        "daily_scans": list(daily_data),
+        "recent_scans": recent_scans,
+        "sector_data": sector_data,   # ✅ fixed
     })
 
 @api_view(['GET'])

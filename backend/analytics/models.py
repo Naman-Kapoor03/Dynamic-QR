@@ -15,6 +15,10 @@ class QRScan(models.Model):
     city = models.CharField(max_length=100, blank=True, null=True)
     
     scanned_at = models.DateTimeField(auto_now_add=True)
+    address = models.TextField(null=True, blank=True)
+    latitude = models.FloatField(null=True, blank=True)    # ← fixed typo
+    longitude = models.FloatField(null=True, blank=True)
+    accuracy = models.FloatField(null=True, blank=True)    # ← added
     
     def __str__(self):
         return f"{self.qr.name} - {self.scanned_at}"

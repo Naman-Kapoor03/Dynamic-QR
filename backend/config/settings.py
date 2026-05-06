@@ -82,23 +82,22 @@ WSGI_APPLICATION = 'config.wsgi.application'
 import dj_database_url
 import os
 
-DATABASES = {
-    'default': dj_database_url.parse(
-        os.environ.get("DATABASE_URL"),
-        conn_max_age=600
-    )
-}
-
 # DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'qr_system',        # your database name
-#         'USER': 'postgres',     # your postgres username
-#         'PASSWORD': 'naman',
-#         'PORT': '5432',
-#     }
-
+#     'default': dj_database_url.parse(
+#         os.environ.get("DATABASE_URL"),
+#         conn_max_age=600
+#     )
 # }
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'qr_system',        # your database name
+        'USER': 'postgres',     # your postgres username
+        'PASSWORD': 'naman',
+        'PORT': '5432',
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

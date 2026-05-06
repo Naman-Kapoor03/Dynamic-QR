@@ -37,16 +37,14 @@ def generate_qr_with_logo(url):
     qr.add_data(url)
     qr.make(fit=True)
 
-    #  NORMAL QR (no dots)
     img = qr.make_image(fill_color="#2FD1A7", back_color="white").convert("RGB")
 
-    #  ADD CENTER LOGO
     try:
         logo_path = os.path.join(settings.BASE_DIR, "static", "drydash.png")
         logo = Image.open(logo_path).convert("RGBA")
 
         img_w, img_h = img.size
-        logo_size = img_w // 3   # slightly bigger for better look
+        logo_size = img_w // 3
 
         logo = logo.resize((logo_size, logo_size))
 
@@ -94,6 +92,9 @@ def create_qr_code(request):
 
 
 
+from django.utils import timezone
+from datetime import timedelta
+
 def scan_qr(request, code):
     print("SCAN HIT:", code)
 
@@ -109,17 +110,27 @@ def scan_qr(request, code):
 
     print("OS:", ua.os.family)
 
-    QRScan.objects.create(
-        qr=qr,
-        ip_address=request.META.get('REMOTE_ADDR'),
-        user_agent=ua_string,
-        device_type="Mobile" if ua.is_mobile else "Desktop",
-        os=ua.os.family,
-        browser=ua.browser.family
-    )
+    ip = request.META.get('REMOTE_ADDR')
 
-    # redirect to tracking page instead of playstore/appstore
-    return redirect(f"https://drydash-qr-system.netlify.app/#/track/{qr.code}/")
+    recent_scan = QRScan.objects.filter(
+        qr=qr,
+        ip_address=ip,
+        scanned_at__gte=timezone.now() - timedelta(seconds=5)
+    ).first()
+
+    if recent_scan:
+        print("DUPLICATE SCAN IGNORED")
+    else:
+        QRScan.objects.create(
+            qr=qr,
+            ip_address=ip,
+            user_agent=ua_string,
+            device_type="Mobile" if ua.is_mobile else "Desktop",
+            os=ua.os.family,
+            browser=ua.browser.family
+        )
+
+    return redirect(f"https://drydash-qr-system.netlify.app/#/track/{qr.code}")
     
 @api_view(['PUT'])
 def update_qr(request, code):
@@ -180,19 +191,30 @@ def get_address_from_latlng(lat, lng):
     API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 
     url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={API_KEY}"
-
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
         data = response.json()
 
         if data["status"] == "OK":
-            result = data["results"][0]
-            return result.get("formatted_address")
+            results = data["results"]
+
+            # Always return full formatted_address from most specific result
+            full_address = results[0].get("formatted_address")
+            print("RESOLVED ADDRESS:", full_address)
+            return full_address
 
     except Exception as e:
         print("Geocode error:", e)
 
     return None
+
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
 
 @api_view(['POST'])
 def save_location(request, code):
@@ -201,25 +223,86 @@ def save_location(request, code):
     except QRCode.DoesNotExist:
         return Response({"error": "QR not found"}, status=404)
 
-    latitude = request.data.get("latitude")
+    latitude  = request.data.get("latitude")
     longitude = request.data.get("longitude")
+    accuracy  = request.data.get("accuracy")
 
-    scan = QRScan.objects.filter(qr=qr).order_by("-scanned_at").first()
+    # ── latest scan without address first
+    scan = QRScan.objects.filter(
+        qr=qr,
+        address__isnull=True
+    ).order_by("-scanned_at").first()
 
-    if scan:
-        scan.latitude = latitude
-        scan.longitude = longitude
+    if not scan:
+        scan = QRScan.objects.filter(qr=qr).order_by("-scanned_at").first()
 
-        print("LAT:", latitude)
-        print("LNG:", longitude)
+    if not scan:
+        return Response({"message": "No scan found"})
 
-        # 🔥 GET ADDRESS FROM GOOGLE
+    # ─────────────────────────────
+    # CASE 1: GPS AVAILABLE
+    # ─────────────────────────────
+    if latitude and longitude:
+
+        print(f"GPS USED lat={latitude} lng={longitude} accuracy={accuracy}m")
+
         address = get_address_from_latlng(latitude, longitude)
 
         print("ADDRESS:", address)
 
-        # (for now just log it, we will store properly next step)
-        scan.save()
+        scan.latitude = latitude
+        scan.longitude = longitude
+        scan.address = address
+
+        if hasattr(scan, 'location_type'):
+            scan.location_type = "GPS"
+
+        if hasattr(scan, 'accuracy'):
+            scan.accuracy = accuracy
+
+    # ─────────────────────────────
+    # CASE 2: IP FALLBACK
+    # ─────────────────────────────
+    else:
+        print("IP FALLBACK USED")
+
+        ip = get_client_ip(request)
+        print("REAL IP:", ip)
+
+        try:
+            res = requests.get(
+                f"https://ipinfo.io/{ip}/json",
+                timeout=4
+            )
+
+            data = res.json()
+
+            loc = data.get("loc")
+
+            if loc:
+                ip_lat, ip_lng = loc.split(",")
+
+                print("IP LAT:", ip_lat)
+                print("IP LNG:", ip_lng)
+
+                # 🔥 use SAME lat/lng fields
+                scan.latitude = ip_lat
+                scan.longitude = ip_lng
+
+                # 🔥 NOW use Google API from IP lat/lng
+                address = get_address_from_latlng(ip_lat, ip_lng)
+
+                print("IP BASED ADDRESS:", address)
+
+                scan.address = address
+
+            if hasattr(scan, 'location_type'):
+                scan.location_type = "IP"
+
+        except Exception as e:
+            print("IP lookup failed:", e)
+
+    scan.save()
 
     return Response({"message": "Location saved"})
 
@@ -232,15 +315,12 @@ def final_redirect(request, code):
     ua_string = request.META.get('HTTP_USER_AGENT', '')
     ua = parse(ua_string)
 
-    # Android
     if "Android" in ua.os.family and qr.playstore_link:
         return redirect(qr.playstore_link)
 
-    # iOS
     elif ("iOS" in ua.os.family or "iPhone" in ua.os.family) and qr.appstore_link:
         return redirect(qr.appstore_link)
 
-    # fallback
     if qr.playstore_link:
         return redirect(qr.playstore_link)
 

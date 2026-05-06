@@ -6,8 +6,8 @@ from .views import (
     update_qr,
     delete_qr,
     save_location,     # added
-    final_redirect     # added
-)
+    final_redirect
+    )
 
 urlpatterns = [
     path('create/', create_qr_code, name='create_qr_code'),
